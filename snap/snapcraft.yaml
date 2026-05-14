@@ -24,6 +24,12 @@ slots:
     source:
       read:
         - &status-share $SNAP_DATA/share/status
+  open-webui:
+    interface: content
+    content: open-webui-config
+    source:
+      read:
+        - &owui-share $SNAP_DATA/share/open-webui
 
 environment:
   # Path to access current revision of components
@@ -35,6 +41,7 @@ environment:
   ARCH_TRIPLET: $CRAFT_ARCH_TRIPLET_BUILD_FOR
   # Status directory shared via content interface
   STATUS_SHARE: *status-share
+  OWUI_SHARE: *owui-share
 
 layout:
   # OpenCL looks in /etc/OpenCL/vendors for .icd files containing the paths to shared objects
@@ -84,8 +91,10 @@ parts:
     stage-packages:
       - jq
     organize:
-      "server.sh": bin/
       "completion.bash": bin/
+      "server.sh": bin/
+      "server-webui.sh": bin/
+      "export-shared-configs.sh": bin/
 
   engines:
     source: engines
@@ -95,8 +104,8 @@ parts:
 
   cli:
     source:
-      - on amd64: https://github.com/canonical/inference-snaps-cli/releases/download/v1.0.0-beta.37/inference-snaps-cli-linux-amd64.tar.xz
-      - on arm64: https://github.com/canonical/inference-snaps-cli/releases/download/v1.0.0-beta.37/inference-snaps-cli-linux-arm64.tar.xz
+      - on amd64: https://github.com/canonical/inference-snaps-cli/releases/download/v1.0.0-beta.42/inference-snaps-cli-linux-amd64.tar.xz
+      - on arm64: https://github.com/canonical/inference-snaps-cli/releases/download/v1.0.0-beta.42/inference-snaps-cli-linux-arm64.tar.xz
     plugin: dump
     override-build: |
       mkdir -p bin
@@ -153,6 +162,12 @@ parts:
       
       craftctl default
 
+  webui:
+    plugin: dump
+    source: https://github.com/canonical/inference-snaps-webui/releases/download/v1.0.0-beta.4/inference-snaps-webui.tar.xz
+    organize:
+      "*": webui/
+
   local-component-files:
     plugin: dump
     source: components
@@ -173,8 +188,8 @@ parts:
   llamacpp:
     plugin: dump
     source:
-      - on amd64: https://github.com/jpm-canonical/llama.cpp-builds/releases/download/b8305/llamacpp-amd64.tar.gz
-      - on arm64: https://github.com/jpm-canonical/llama.cpp-builds/releases/download/b8305/llamacpp-arm64.tar.gz
+      - on amd64: https://github.com/canonical/llama.cpp-builds/releases/download/b8589/llamacpp-amd64.tar.gz
+      - on arm64: https://github.com/canonical/llama.cpp-builds/releases/download/b8589/llamacpp-arm64.tar.gz
     stage-packages:
       - libgomp1
     organize:
@@ -184,8 +199,8 @@ parts:
   llamacpp-cuda:
     plugin: dump
     source:
-      - on amd64: https://github.com/jpm-canonical/llama.cpp-builds/releases/download/b8305/llamacpp-amd64+cuda12.tar.gz
-      - on arm64: https://github.com/jpm-canonical/llama.cpp-builds/releases/download/b8305/llamacpp-arm64+cuda12.tar.gz
+      - on amd64: https://github.com/canonical/llama.cpp-builds/releases/download/b8589/llamacpp-amd64+cuda12.tar.gz
+      - on arm64: https://github.com/canonical/llama.cpp-builds/releases/download/b8589/llamacpp-arm64+cuda12.tar.gz
     stage-packages:
       - libgomp1
     organize:
@@ -194,9 +209,8 @@ parts:
   
   llamacpp-rocm:
     plugin: dump
-    # Detailed instructions on how to create llama.cpp with rocm support release archive: https://github.com/jpm-canonical/llama.cpp-builds/releases/tag/b8287
     source:
-      - on amd64: https://github.com/jpm-canonical/llama.cpp-builds/releases/download/b8589/llamacpp-amd64+rocm.tar.gz
+      - on amd64: https://github.com/canonical/llama.cpp-builds/releases/download/b8589/llamacpp-amd64+rocm.tar.gz
       - on arm64: components/llamacpp-rocm
     stage-packages:
       - on amd64:
@@ -310,13 +324,13 @@ components:
     type: standard
     summary: llama.cpp using default CPU instruction sets
     description: LLM inference in C/C++
-    version: b8305
+    version: b8589
 
   llamacpp-cuda:
     type: standard
     summary: llama.cpp with CUDA backend
     description: LLM inference in C/C++
-    version: b8305
+    version: b8589
 
   llamacpp-rocm:
     type: standard
@@ -365,8 +379,10 @@ apps:
       - opengl
       # To access server over network socket
       - network
+      # To open the browser using webui command
+      - desktop 
     environment:
-      ADDITIONAL_FEATURES: chat
+      ADDITIONAL_FEATURES: chat, webui
 
   server:
     command: bin/server.sh
@@ -388,3 +404,9 @@ apps:
       - npu-libs
       # Needed to detect AMD rocm capable device
       - process-control
+
+  server-webui:
+    command: bin/server-webui.sh
+    daemon: simple
+    plugs:
+      - network-bind

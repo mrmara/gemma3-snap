@@ -1,9 +1,20 @@
 name: cla-check
-on: [pull_request]
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      pull-request-number:
+        description: Pull request number to check for CLA signature
+        required: true
+        type: number
+      runs-on:
+        description: Optional runner label (falls back to ubuntu-slim when empty)
+        required: false
+        type: string
 
 jobs:
   cla-check:
-    runs-on: ubuntu-slim
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && (inputs['runs-on'] || 'ubuntu-slim') || 'ubuntu-slim' }}
     steps:
       - name: Check if CLA signed
         uses: canonical/has-signed-canonical-cla@v2
